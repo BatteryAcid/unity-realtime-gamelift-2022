@@ -166,7 +166,7 @@ public class SQSMessageProcessing : MonoBehaviour
 
     private static string ParseGameSessionIdFromArn(string gameSessionArn)
     {
-        //arn:aws:gamelift:us-east-1::gamesession/fleet-31fe953d-aeef-41c9-8711-3b8f6ee7bb8f/a8221ec4-7856-421d-9cd1-0acc539f3e0e
+        // arn:aws:gamelift:us-east-1::gamesession/fleet-31fe953d-aeef-41c9-8711-3b8f6ee7bb8f/a8221ec4-7856-421d-9cd1-0acc539f3e0e
         // splitting on / means id is at index 2
         string[] arnSections = gameSessionArn.Split('/');
         return arnSections[2];
@@ -194,20 +194,36 @@ public class SQSMessageProcessing : MonoBehaviour
     }
 }
 
+// The lambda function handles both cases where there are existing game sessions and also
+// when there are none and we submit a placement request.
+// To make the demo easy, I combined the placement and game session response types into one model.
 [System.Serializable]
 public class GameSessionPlacementInfo
 {
+    // placement details
     public string PlacementId;
     public string GameSessionQueueName;
-    public string Status;
+
+    // game session details
+    public string GameSessionId;
+    public string FleetId;
+    public string FleetArn;
+    public string IpAddress;
+    public string DnsName;
+    public string Port;
+    public string Location;
+    public string GameSessionStatus;
+
+    // player session details
+    public string PlayerSessionId;
+    public string PlayerId;
+    public string PlayerSessionStatus;
+
+    // shared properties
     public string MaximumPlayerSessionCount;
-  //  PlacementId: '1d381bfd-f560-43cd-9065-8e0315c6f245',
-  //GameSessionQueueName: '29OCT2021-queue',
-  //Status: 'PENDING',
-  //GameProperties: [],
-  //MaximumPlayerSessionCount: 2,
-  //PlayerLatencies: [],
-  //StartTime: 2022-04-07T18:25:40.547Z
+    public string CurrentPlayerSessionCount;
+
+    // you can also pass game properties if your game needs to send setup data for the match  
 }
 
 public class PlayerPlacementFulfillmentInfo

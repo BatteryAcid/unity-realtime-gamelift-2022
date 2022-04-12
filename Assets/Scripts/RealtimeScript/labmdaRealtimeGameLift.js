@@ -46,13 +46,14 @@ async function searchGameSessions(targetAliasARN) {
         }
         else {
             console.log("no game sessions");
-            return [];
+            return null;
         }
     }).catch(err => {
         console.log(err);
-        return [];
+        return null;
     });
 }
+
 async function createGameSessionPlacement(targetQueueName, playerId) {
     console.log("createGameSessionPlacement");
     var createSessionInQueueRequest = {
@@ -72,6 +73,22 @@ async function createGameSessionPlacement(targetQueueName, playerId) {
         console.log(err);
         return [];
     });
+}
+
+async function createPlayerSession(playerId, gameSessionId) {
+    var createPlayerSessionRequest = {
+      GameSessionId: gameSessionId,
+      PlayerId: playerId
+    };
+    
+    return await gameLiftClient.createPlayerSession(createPlayerSessionRequest).promise().then(data => {
+        console.log(data);
+        return data;
+    }).catch(err => {
+        console.log(err);
+        return null;
+    });
+    
 }
 
 exports.handler = async (event, context, callback) => {
@@ -94,10 +111,22 @@ exports.handler = async (event, context, callback) => {
                 var activeQueue = await getActiveQueue();
                 console.log(activeQueue);
 
-                var gameSessions = await searchGameSessions(activeQueue.Destinations[0].DestinationArn);
+                var gameSession = await searchGameSessions(activeQueue.Destinations[0].DestinationArn);
 
-                if (gameSessions && gameSessions.length > 0) {
+                if (gameSession) {
                     console.log("We have a game session to join!");
+                    console.log(gameSession);
+                    
+                    console.log("Creating player session...");
+                    var playerSession = await createPlayerSession(message.playerId, gameSession.GameSessionId);
+                    console.log("Player session created");
+                    console.log(playerSession);
+                    
+                    responseMsg = playerSession.PlayerSession;
+                    responseMsg.PlayerSessionStatus = playerSession.PlayerSession.Status;
+                    responseMsg.GameSessionId = gameSession.GameSessionId;
+                    responseMsg.GameSessionStatus = gameSession.Status;
+                    
                 }
                 else {
                     console.log("No game sessions to join! " + activeQueue.Name);

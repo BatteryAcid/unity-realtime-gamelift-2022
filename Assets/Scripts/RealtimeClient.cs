@@ -11,6 +11,7 @@ using Aws.GameLift.Realtime.Types;
  * You can redirect logging from the SDK by setting up the LogHandler as such:
  * ClientLogger.LogHandler = (x) => Console.WriteLine(x);
  *
+ * Based on: https://docs.aws.amazon.com/gamelift/latest/developerguide/realtime-client.html#realtime-client-examples
  */
 public class RealTimeClient
 {
@@ -53,32 +54,37 @@ public class RealTimeClient
         Client.Connect(endpoint, tcpPort, localUdpPort, token);
     }
 
-    public void Disconnect()
-    {
-        if (Client.Connected)
-        {
-            Client.Disconnect();
-        }
-    }
-
-    public bool IsConnected()
-    {
-        return Client.Connected;
-    }
-
     /// <summary>
     /// Example of sending to a custom message to the server.
     /// 
     /// Server could be replaced by known peer Id etc.
     /// </summary>
-    /// <param name="intent">Choice of delivery intent ie Reliable, Fast etc. </param>
     /// <param name="payload">Custom payload to send with message</param>
-    public void SendMessage(DeliveryIntent intent, string payload)
+    public void SendMessage(int opcode, string payload)
     {
-        Client.SendMessage(Client.NewMessage(MY_TEST_OP_CODE)
-            .WithDeliveryIntent(intent)
+        // You can also pass in the DeliveryIntent depending on your message delivery requirements
+        // https://docs.aws.amazon.com/gamelift/latest/developerguide/realtime-sdk-csharp-ref-datatypes.html#realtime-sdk-csharp-ref-datatypes-rtmessage
+
+        Client.SendMessage(Client.NewMessage(opcode)
+            .WithDeliveryIntent(DeliveryIntent.Reliable)
             .WithTargetPlayer(Constants.PLAYER_ID_SERVER)
             .WithPayload(StringToBytes(payload)));
+    }
+
+    /**
+     *  Handle data received from the Realtime server 
+     */
+    public virtual void OnDataReceived(object sender, DataReceivedEventArgs e)
+    {
+        Debug.Log("OnDataReceived");
+
+        switch (e.OpCode)
+        {
+            // handle message based on OpCode
+            default:
+                Debug.Log(e.OpCode);
+                break;
+        }
     }
 
     /**
@@ -103,19 +109,17 @@ public class RealTimeClient
     {
     }
 
-    /**
-     *  Handle data received from the Realtime server 
-     */
-    public virtual void OnDataReceived(object sender, DataReceivedEventArgs e)
+    public void Disconnect()
     {
-        Debug.Log("OnDataReceived");
-        switch (e.OpCode)
+        if (Client.Connected)
         {
-            // handle message based on OpCode
-            default:
-                Debug.Log(e.OpCode);
-                break;
+            Client.Disconnect();
         }
+    }
+
+    public bool IsConnected()
+    {
+        return Client.Connected;
     }
 
     /**

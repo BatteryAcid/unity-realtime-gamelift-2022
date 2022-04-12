@@ -7,7 +7,6 @@ public class APIManager : MonoBehaviour
 {
     public async Task<GameSessionPlacementInfo> PostGetResponse(string api, string postData)
     {
-        bool isuccess = false;
         GameSessionPlacementInfo gameSessionPlacementInfo = new GameSessionPlacementInfo();
         var formData = System.Text.Encoding.UTF8.GetBytes(postData);
 

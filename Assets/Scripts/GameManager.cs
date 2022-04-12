@@ -31,7 +31,7 @@ public class GameManager : MonoBehaviour
 
         // bool isSuccess = await buildableObjectManager.BuildObject(FindObjectOfType<Temple>());
         // BuildComplete();
-        
+
 
 
         // TODO:
@@ -44,21 +44,41 @@ public class GameManager : MonoBehaviour
         MatchMessage matchMessage = new MatchMessage("1", _playerId);
         string jsonPostData = JsonUtility.ToJson(matchMessage);
         Debug.Log(jsonPostData);
+
         GameSessionPlacementInfo gameSessionPlacementInfo = await apiManager.PostGetResponse("https://0zco9bhj7c.execute-api.us-east-1.amazonaws.com/demo/", jsonPostData);
+        Debug.Log(gameSessionPlacementInfo);
+
         if (gameSessionPlacementInfo != null)
         {
             Debug.Log("Success");
-            Debug.Log(gameSessionPlacementInfo.PlacementId);
-            // subscribe to receive the player placement fulfillment notification
-            // TODO: use the placement id from lambda request to subscribe to fulfillment notifications
-            await SubscribeToFulfillmentNotifications(gameSessionPlacementInfo.PlacementId);
+            if (gameSessionPlacementInfo.PlacementId != null)
+            {
+                // The response was from a placement request
+                Debug.Log(gameSessionPlacementInfo.PlacementId);
 
+                // subscribe to receive the player placement fulfillment notification
+                await SubscribeToFulfillmentNotifications(gameSessionPlacementInfo.PlacementId);
+
+            }
+            else if (gameSessionPlacementInfo.GameSessionId != null)
+            {
+                // The response was for a found game session which also contains infor for created player session
+                Debug.Log(gameSessionPlacementInfo.GameSessionId);
+
+                Int32.TryParse(gameSessionPlacementInfo.Port, out int portAsInt);
+
+                // Once connected, the Realtime service moves the Player session from Reserved to Active.
+                // https://docs.aws.amazon.com/gamelift/latest/apireference/API_CreatePlayerSession.html
+                EstablishConnectionToRealtimeServer(gameSessionPlacementInfo.IpAddress, portAsInt, gameSessionPlacementInfo.PlayerSessionId, connectionPayload);
+            } else
+            {
+                Debug.Log("Game session response not valid...");
+            }
         }
 
         // TODO: once match found, update to false
         findingMatch = false;
     }
-
 
     private async Task<bool> SubscribeToFulfillmentNotifications(string placementId)
     {
@@ -69,11 +89,10 @@ public class GameManager : MonoBehaviour
             Debug.Log("PlayerPlacementFulfillmentInfo fulfilled...");
             Debug.Log("PlacedPlayerSessions count: " + playerPlacementFulfillmentInfo.placedPlayerSessions.Count);
 
-            int localUdpPort = GetAvailableUdpPort();
-            
-            _realTimeClient = new RealTimeClient(playerPlacementFulfillmentInfo.ipAddress, playerPlacementFulfillmentInfo.port, localUdpPort,
-                playerPlacementFulfillmentInfo.placedPlayerSessions[0].playerSessionId, connectionPayload, ConnectionType.RT_OVER_WS_UDP_UNSECURED);
-
+            // Once connected, the Realtime service moves the Player session from Reserved to Active.
+            // https://docs.aws.amazon.com/gamelift/latest/apireference/API_CreatePlayerSession.html
+            EstablishConnectionToRealtimeServer(playerPlacementFulfillmentInfo.ipAddress, playerPlacementFulfillmentInfo.port,
+                playerPlacementFulfillmentInfo.placedPlayerSessions[0].playerSessionId, connectionPayload);
 
             return true;
         }
@@ -85,9 +104,20 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    private void EstablishConnectionToRealtimeServer(string ipAddress, int port, string playerSessionId, byte[] connectionPayload)
+    {
+        int localUdpPort = GetAvailableUdpPort();
+
+        _realTimeClient = new RealTimeClient(ipAddress, port, localUdpPort, playerSessionId, connectionPayload, ConnectionType.RT_OVER_WS_UDP_UNSECURED);
+
+    }
+
     public async void OnPlayCardPressed()
     {
         Debug.Log("Play card pressed");
+
+        // You will use the Realtime client's send message function to pass data to the server
+        // _realTimeClient.SendMessage();
 
     }
 
