@@ -22,6 +22,8 @@ public class GameManager : MonoBehaviour
     private byte[] connectionPayload = new Byte[64];
     private static readonly IPEndPoint DefaultLoopbackEndpoint = new IPEndPoint(IPAddress.Loopback, port: 0);
 
+    private const int PLAY_CARD_OP = 300;
+
     public async void OnFindMatchPressed()
     {
         Debug.Log("Find match pressed");
@@ -112,12 +114,13 @@ public class GameManager : MonoBehaviour
 
     }
 
-    public async void OnPlayCardPressed()
+    public void OnPlayCardPressed()
     {
         Debug.Log("Play card pressed");
 
+        RealtimePayload realtimePayload = new RealtimePayload(_playerId);
         // You will use the Realtime client's send message function to pass data to the server
-        // _realTimeClient.SendMessage();
+         _realTimeClient.SendMessage(PLAY_CARD_OP, realtimePayload);
 
     }
 
@@ -132,6 +135,7 @@ public class GameManager : MonoBehaviour
 
         playCardButton = GameObject.Find("PlayCard").GetComponent<Button>();
         playCardButton.onClick.AddListener(OnPlayCardPressed);
+        playCardButton.enabled = false;
 
         _playerId = System.Guid.NewGuid().ToString();
     }
@@ -142,6 +146,12 @@ public class GameManager : MonoBehaviour
         {
             // TODO: probably move to not active, hide it.
             findMatchButton.enabled = false;
+        }
+
+        // TODO: hack to get the button to only work when game is started
+        if (_realTimeClient != null && _realTimeClient.GameStarted && playCardButton.enabled == false)
+        {
+            playCardButton.enabled = true;
         }
     }
 
@@ -164,6 +174,18 @@ public class MatchMessage
     public MatchMessage(string opCodeIn, string playerIdIn)
     {
         this.opCode = opCodeIn;
+        this.playerId = playerIdIn;
+    }
+}
+
+[System.Serializable]
+public class RealtimePayload
+{
+    public string playerId;
+    // Other fields you wish to pass as payload to the realtime server
+    public RealtimePayload() { }
+    public RealtimePayload(string playerIdIn)
+    {
         this.playerId = playerIdIn;
     }
 }

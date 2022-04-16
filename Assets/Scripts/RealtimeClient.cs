@@ -18,7 +18,8 @@ public class RealTimeClient
     public Aws.GameLift.Realtime.Client Client { get; private set; }
     public bool OnCloseReceived { get; private set; }
     // An opcode defined by client and your server script that represents a custom message type
-    private const int MY_TEST_OP_CODE = 10;
+    private const int OP_CODE_PLAYER_ACCEPTED = 113;
+    public bool GameStarted = false;
 
     /// <summary>
     /// Initialize a client for GameLift Realtime and connects to a player session.
@@ -60,10 +61,13 @@ public class RealTimeClient
     /// Server could be replaced by known peer Id etc.
     /// </summary>
     /// <param name="payload">Custom payload to send with message</param>
-    public void SendMessage(int opcode, string payload)
+    public void SendMessage(int opcode, RealtimePayload realtimePayload)
     {
         // You can also pass in the DeliveryIntent depending on your message delivery requirements
         // https://docs.aws.amazon.com/gamelift/latest/developerguide/realtime-sdk-csharp-ref-datatypes.html#realtime-sdk-csharp-ref-datatypes-rtmessage
+
+        string payload = JsonUtility.ToJson(realtimePayload);
+        //Debug.Log(payload);
 
         Client.SendMessage(Client.NewMessage(opcode)
             .WithDeliveryIntent(DeliveryIntent.Reliable)
@@ -78,9 +82,15 @@ public class RealTimeClient
     {
         Debug.Log("OnDataReceived");
 
+        // handle message based on OpCode
         switch (e.OpCode)
         {
-            // handle message based on OpCode
+            
+            case OP_CODE_PLAYER_ACCEPTED:
+                Debug.Log("Player accepted into game session! Start game...");
+                GameStarted = true;
+                break;
+            
             default:
                 Debug.Log(e.OpCode);
                 break;
