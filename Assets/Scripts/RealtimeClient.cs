@@ -4,6 +4,9 @@ using System.Text;
 using Aws.GameLift.Realtime;
 using Aws.GameLift.Realtime.Event;
 using Aws.GameLift.Realtime.Types;
+using Newtonsoft.Json;
+
+//TODO: can we add a onTerminate call to disconnect the connection?
 
 /**
  * An example client that wraps the GameLift Realtime client SDK
@@ -17,9 +20,11 @@ public class RealTimeClient
 {
     public Aws.GameLift.Realtime.Client Client { get; private set; }
     public bool OnCloseReceived { get; private set; }
-    // An opcode defined by client and your server script that represents a custom message type
-    private const int OP_CODE_PLAYER_ACCEPTED = 113;
     public bool GameStarted = false;
+    public bool GameOver = false;
+    private GameManager _gameManager;
+
+    private MatchResults matchResults;
 
     /// <summary>
     /// Initialize a client for GameLift Realtime and connects to a player session.
@@ -30,8 +35,10 @@ public class RealTimeClient
     /// <param name="playerSessionId">The player session Id in use - from CreatePlayerSession</param>
     /// <param name="connectionPayload"></param>
     /// 
-    public RealTimeClient(string endpoint, int tcpPort, int localUdpPort, string playerSessionId, byte[] connectionPayload, ConnectionType connectionType)
+    public RealTimeClient(string endpoint, int tcpPort, int localUdpPort, string playerSessionId, string connectionPayload, ConnectionType connectionType, GameManager gameManagerIn)
     {
+        _gameManager = gameManagerIn;
+
         this.OnCloseReceived = false;
 
         // Create a client configuration to specify a secure or unsecure connection type
@@ -51,7 +58,7 @@ public class RealTimeClient
         Client.GroupMembershipUpdated += new EventHandler<GroupMembershipEventArgs>(OnGroupMembershipUpdate);
         Client.DataReceived += new EventHandler<DataReceivedEventArgs>(OnDataReceived);
 
-        ConnectionToken token = new ConnectionToken(playerSessionId, connectionPayload);
+        ConnectionToken token = new ConnectionToken(playerSessionId, StringToBytes(connectionPayload));
         Client.Connect(endpoint, tcpPort, localUdpPort, token);
     }
 
@@ -86,15 +93,58 @@ public class RealTimeClient
         switch (e.OpCode)
         {
             
-            case OP_CODE_PLAYER_ACCEPTED:
-                Debug.Log("Player accepted into game session! Start game...");
+            case GameManager.OP_CODE_PLAYER_ACCEPTED:
+                Debug.Log("Player accepted into game session!");
+                
+                // TODO: this would get moved to match started op
                 GameStarted = true;
                 break;
-            
+
+            case GameManager.GAME_START_OP:
+                Debug.Log("Start game op received...");
+                string startGameData = BytesToString(e.Data);
+                Debug.Log(startGameData);
+
+                // TODO: Should this go here? yes, as we have to wait until 2nd player joins before starting.  While local testing, we have to keep it in the first case...
+                //GameStarted = true;
+
+                StartMatch startMatch = JsonConvert.DeserializeObject<StartMatch>(startGameData);
+
+                _gameManager.UpdateRemotePlayerUI(startMatch.remotePlayerId);
+
+                break;
+
+            case GameManager.DRAW_CARD_ACK_OP:
+                Debug.Log("Player draw card ack...");
+                string data = BytesToString(e.Data);
+                //Debug.Log(data);
+                CardPlayed cardPlayedMessage = JsonConvert.DeserializeObject<CardPlayed>(data);
+                //Debug.Log(cardPlayedMessage.playedBy);
+                //Debug.Log(cardPlayedMessage.card);
+
+                _gameManager.CardPlayed(cardPlayedMessage);
+
+                break;
+
+            case GameManager.GAMEOVER_OP:
+                Debug.Log("Game over op...");
+                string gameoverData = BytesToString(e.Data);
+                Debug.Log(gameoverData);
+                matchResults = JsonConvert.DeserializeObject<MatchResults>(gameoverData);
+                Debug.Log(matchResults);
+                GameOver = true;
+
+                break;
+
             default:
                 Debug.Log(e.OpCode);
                 break;
         }
+    }
+
+    public MatchResults GetMatchResults()
+    {
+        return matchResults;
     }
 
     /**
