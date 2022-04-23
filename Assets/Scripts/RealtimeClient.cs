@@ -6,9 +6,15 @@ using Aws.GameLift.Realtime.Event;
 using Aws.GameLift.Realtime.Types;
 using Newtonsoft.Json;
 
-//TODO: can we add a onTerminate call to disconnect the connection?
-
 /**
+ * @BatteryAcid
+ * I've modified this example to demonstrate a simple two player card game.
+ * 
+ * The base code is sourced from the AWS GameLift Docs: 
+ * https://docs.aws.amazon.com/gamelift/latest/developerguide/realtime-client.html#realtime-client-examples
+ *
+ * -----
+ * 
  * An example client that wraps the GameLift Realtime client SDK
  * 
  * You can redirect logging from the SDK by setting up the LogHandler as such:
@@ -102,6 +108,7 @@ public class RealTimeClient
 
             case GameManager.GAME_START_OP:
                 Debug.Log("Start game op received...");
+
                 string startGameData = BytesToString(e.Data);
                 Debug.Log(startGameData);
 
@@ -116,11 +123,13 @@ public class RealTimeClient
 
             case GameManager.DRAW_CARD_ACK_OP:
                 Debug.Log("Player draw card ack...");
+
                 string data = BytesToString(e.Data);
-                //Debug.Log(data);
+                // Debug.Log(data);
+
                 CardPlayed cardPlayedMessage = JsonConvert.DeserializeObject<CardPlayed>(data);
-                //Debug.Log(cardPlayedMessage.playedBy);
-                //Debug.Log(cardPlayedMessage.card);
+                // Debug.Log(cardPlayedMessage.playedBy);
+                // Debug.Log(cardPlayedMessage.card);
 
                 _gameManager.CardPlayed(cardPlayedMessage);
 
@@ -128,16 +137,17 @@ public class RealTimeClient
 
             case GameManager.GAMEOVER_OP:
                 Debug.Log("Game over op...");
+
                 string gameoverData = BytesToString(e.Data);
                 Debug.Log(gameoverData);
+
                 matchResults = JsonConvert.DeserializeObject<MatchResults>(gameoverData);
-                Debug.Log(matchResults);
                 GameOver = true;
 
                 break;
 
             default:
-                Debug.Log(e.OpCode);
+                Debug.Log("OpCode not found: " + e.OpCode);
                 break;
         }
     }
