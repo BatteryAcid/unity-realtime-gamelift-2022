@@ -11,26 +11,25 @@ using Newtonsoft.Json;
 
 public class SQSMessageProcessing : MonoBehaviour
 {
-    private AmazonSQSClient sqsClient;
-    private static string SQSURL = "https://sqs.us-east-1.amazonaws.com/654368844800/realtime-gamelift-2022-fulfillment-queue-discovery";
+    private const string IdentityPool = "us-east-1:0f2ccd51-c118-4358-99ed-5fb8ac8322c7";
+    private const string SQSURL = "https://sqs.us-east-1.amazonaws.com/654368844800/realtime-gamelift-2022-fulfillment-queue-discovery";
     private const int MaxMessages = 1;
     private const int WaitTime = 20;
 
-    private Coroutine fulfillmentFailsafeCoroutine;
-    private bool fulfillmentMessageReceived = false;
-    private float timeToSearch;
-    private float timeOriginal;
+    private AmazonSQSClient _sqsClient;
+    private Coroutine _fulfillmentFailsafeCoroutine;
+    private bool _fulfillmentMessageReceived = false;
 
     public async Task<PlayerPlacementFulfillmentInfo> SubscribeToFulfillmentNotifications(string placementId)
     {
         Debug.Log("SubscribeToFulfillmentNotifications...");
 
-        fulfillmentFailsafeCoroutine = StartCoroutine(FailsafeTimer());
+        _fulfillmentFailsafeCoroutine = StartCoroutine(FailsafeTimer());
         PlayerPlacementFulfillmentInfo playerPlacementFulfillmentInfo = null;
 
         do
         {
-            var msg = await GetMessage(sqsClient, SQSURL, WaitTime);
+            var msg = await GetMessage(_sqsClient, SQSURL, WaitTime);
             if (msg.Messages.Count != 0)
             {
                 Debug.Log("SubscribeToFulfillmentNotifications received message...");
@@ -41,21 +40,21 @@ public class SQSMessageProcessing : MonoBehaviour
                 if (playerPlacementFulfillmentInfo != null && playerPlacementFulfillmentInfo.placementId == placementId)
                 {
                     Debug.Log("Placement fulfilled, break loop...");
-                    fulfillmentMessageReceived = true; // break loop
+                    _fulfillmentMessageReceived = true; // break loop
 
-                    // Delete consumed message 
-                    await DeleteMessage(sqsClient, msg.Messages[0], SQSURL);
+                    // Delete consumed message as it is no longer necessary to leave it in the queue.
+                    await DeleteMessage(_sqsClient, msg.Messages[0], SQSURL);
 
-                    if (fulfillmentFailsafeCoroutine != null)
+                    if (_fulfillmentFailsafeCoroutine != null)
                     {
                         // kill failsafe coroutine
-                        StopCoroutine(fulfillmentFailsafeCoroutine);
+                        StopCoroutine(_fulfillmentFailsafeCoroutine);
                     }
                 }
 
                 // we don't break loop here because the message received wasn't for this player
             }
-        } while (!fulfillmentMessageReceived);
+        } while (!_fulfillmentMessageReceived);
 
         return playerPlacementFulfillmentInfo;
     }
@@ -63,29 +62,30 @@ public class SQSMessageProcessing : MonoBehaviour
     private static PlayerPlacementFulfillmentInfo ConvertMessage(string convertMessage)
     {
         Debug.Log("ConvertMessage...");
-        Debug.Log(convertMessage);
+        // Debug.Log(convertMessage);
 
         string cleanedMessage = CleanupMessage(convertMessage);
 
         SQSMessage networkMessage = JsonConvert.DeserializeObject<SQSMessage>(cleanedMessage);
+
         if (networkMessage != null)
         {
-            Debug.Log("networkMessage.Message: " + networkMessage.Message);
-            Debug.Log("networkMessage.TopicArn: " + networkMessage.TopicArn);
-            Debug.Log("networkMessage.Type: " + networkMessage.Type);
+            // Debug.Log("networkMessage.Message: " + networkMessage.Message);
+            // Debug.Log("networkMessage.TopicArn: " + networkMessage.TopicArn);
+            // Debug.Log("networkMessage.Type: " + networkMessage.Type);
 
             if (networkMessage.Type == "Notification")
             {
                 if (networkMessage.Message != null)
                 {
-                    Debug.Log("networkMessage.Message: " + networkMessage.Message.id);
+                    // Debug.Log("networkMessage.Message: " + networkMessage.Message.id);
 
                     if (networkMessage.Message.detail != null)
                     {
-                        Debug.Log("ipAddress: " + networkMessage.Message.detail.ipAddress);
-                        Debug.Log("port: " + networkMessage.Message.detail.port);
-                        Debug.Log("placementId: " + networkMessage.Message.detail.placementId);
-                        Debug.Log("gameSessionArn: " + networkMessage.Message.detail.gameSessionArn);
+                        // Debug.Log("ipAddress: " + networkMessage.Message.detail.ipAddress);
+                        // Debug.Log("port: " + networkMessage.Message.detail.port);
+                        // Debug.Log("placementId: " + networkMessage.Message.detail.placementId);
+                        // Debug.Log("gameSessionArn: " + networkMessage.Message.detail.gameSessionArn);
 
                         Int32.TryParse(networkMessage.Message.detail.port, out int portAsInt);
 
@@ -99,9 +99,9 @@ public class SQSMessageProcessing : MonoBehaviour
                         };
                         return playerPlacementFulfillmentInfo;
 
-                        // Side note: If you're creating a game session as a group, you can use the placePlayerSessions to perform any post create-gameSession logic, like if in a steam group,
-                        // you could send out a steam message to the other members with some pre-match game properties or whatever clean up you need to do.
-
+                        // Side note: If you're creating a game session as a group, you can use the placePlayerSessions
+                        // to perform any post create-gameSession logic, like if in a steam group, you could send out a
+                        // steam message to the other members with some pre-match game properties or whatever clean up you need to do.
                     }
                     else
                     {
@@ -141,11 +141,11 @@ public class SQSMessageProcessing : MonoBehaviour
         // The Message is JSON inside a string, this removes the quotes around the braces so it can be serialized as an object
         string cleanedMessage = messageToClean.Replace("\"{", "{");
         cleanedMessage = cleanedMessage.Replace("}\"", "}");
-        //Debug.Log("cleanedMessage1 " + cleanedMessage);
+        // Debug.Log("cleanedMessage1 " + cleanedMessage);
 
         // remove escape slashes from message string so it can be properly read as object
         cleanedMessage = cleanedMessage.Replace("\\", "");
-        //Debug.Log("cleanedMessage2 " + cleanedMessage);
+        // Debug.Log("cleanedMessage2 " + cleanedMessage);
 
         return cleanedMessage;
     }
@@ -164,33 +164,33 @@ public class SQSMessageProcessing : MonoBehaviour
         }
     }
 
+    void Start()
+    {
+        // TODO: think we need CognitoIdentity dll:https://docs.aws.amazon.com/sdkfornet/latest/apidocs/items/TCognitoIdentityCognitoAWSCredentialsNET35.html
+        CognitoAWSCredentials credentials = new CognitoAWSCredentials(
+            IdentityPool, // Your Identity pool ID
+            RegionEndpoint.USEast1 // Your GameLift Region
+        );
+
+        _sqsClient = new AmazonSQSClient(credentials, Amazon.RegionEndpoint.USEast1);
+    }
+
     private static string ParseGameSessionIdFromArn(string gameSessionArn)
     {
-        // arn:aws:gamelift:us-east-1::gamesession/fleet-31fe953d-aeef-41c9-8711-3b8f6ee7bb8f/a8221ec4-7856-421d-9cd1-0acc539f3e0e
+        // EX:
+        //   arn:aws:gamelift:us-east-1::gamesession/fleet-123e953d-aeef-41c9-8711-3b8f6ee7bb8f/abc21ec4-7856-421d-9cd1-0acc539f3e0e
         // splitting on / means id is at index 2
         string[] arnSections = gameSessionArn.Split('/');
         return arnSections[2];
     }
 
-    void Start()
-    {
-        // TODO: think we need CognitoIdentity dll:https://docs.aws.amazon.com/sdkfornet/latest/apidocs/items/TCognitoIdentityCognitoAWSCredentialsNET35.html
-        CognitoAWSCredentials credentials = new CognitoAWSCredentials(
-            "us-east-1:0f2ccd51-c118-4358-99ed-5fb8ac8322c7", // Identity pool ID
-            RegionEndpoint.USEast1 // Region
-        );
-
-        sqsClient = new AmazonSQSClient(credentials, Amazon.RegionEndpoint.USEast1);
-        // TODO: update this to leverage the Identity Pool credentials, not this hardcoded stuff
-        //sqsClient = new AmazonSQSClient("asdfasdf", "asdfasdf", Amazon.RegionEndpoint.USEast1);
-    }
-
+    // This creates a timer to kill the fulfillment listener above if it doesn't receive a response within the wait time below.
     private IEnumerator FailsafeTimer()
     {
         Debug.Log("FailsafeTimer setup...");
         yield return new WaitForSecondsRealtime(10 * 60); // 10 minutes
         Debug.Log("FailsafeTimer activated and stopping loop...");
-        fulfillmentMessageReceived = true;
+        _fulfillmentMessageReceived = true;
     }
 }
 

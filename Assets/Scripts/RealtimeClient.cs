@@ -24,13 +24,14 @@ using Newtonsoft.Json;
  */
 public class RealTimeClient
 {
+    private GameManager _gameManager;
+    private MatchResults matchResults;
+
     public Aws.GameLift.Realtime.Client Client { get; private set; }
+
     public bool OnCloseReceived { get; private set; }
     public bool GameStarted = false;
     public bool GameOver = false;
-    private GameManager _gameManager;
-
-    private MatchResults matchResults;
 
     /// <summary>
     /// Initialize a client for GameLift Realtime and connects to a player session.
@@ -43,6 +44,7 @@ public class RealTimeClient
     /// 
     public RealTimeClient(string endpoint, int tcpPort, int localUdpPort, string playerSessionId, string connectionPayload, ConnectionType connectionType, GameManager gameManagerIn)
     {
+        // There's probably a better way to inject the game manager, but to keep it simple for the demo...
         _gameManager = gameManagerIn;
 
         this.OnCloseReceived = false;
@@ -69,59 +71,45 @@ public class RealTimeClient
     }
 
     /// <summary>
-    /// Example of sending to a custom message to the server.
-    /// 
-    /// Server could be replaced by known peer Id etc.
+    /// Handle data received from the Realtime server 
     /// </summary>
-    /// <param name="payload">Custom payload to send with message</param>
-    public void SendMessage(int opcode, RealtimePayload realtimePayload)
-    {
-        // You can also pass in the DeliveryIntent depending on your message delivery requirements
-        // https://docs.aws.amazon.com/gamelift/latest/developerguide/realtime-sdk-csharp-ref-datatypes.html#realtime-sdk-csharp-ref-datatypes-rtmessage
-
-        string payload = JsonUtility.ToJson(realtimePayload);
-        //Debug.Log(payload);
-
-        Client.SendMessage(Client.NewMessage(opcode)
-            .WithDeliveryIntent(DeliveryIntent.Reliable)
-            .WithTargetPlayer(Constants.PLAYER_ID_SERVER)
-            .WithPayload(StringToBytes(payload)));
-    }
-
-    /**
-     *  Handle data received from the Realtime server 
-     */
     public virtual void OnDataReceived(object sender, DataReceivedEventArgs e)
     {
-        Debug.Log("OnDataReceived");
+        Debug.Log("On data received");
 
         // handle message based on OpCode
         switch (e.OpCode)
         {
-            
             case GameManager.OP_CODE_PLAYER_ACCEPTED:
+                // This tells our client that the player has been accepted into the Game Session as a new player session.
                 Debug.Log("Player accepted into game session!");
-                
-                // TODO: this would get moved to match started op
-                GameStarted = true;
+
+                // If you need to test and you don't have two computers, you can mark GameStarted true here to enable the Draw card button
+                // and comment it out in the GAME_START_OP case.
+                // This only works because game play is asynchronous and doesn't care if both players are active at the same time.
+                // GameStarted = true;
+
                 break;
 
             case GameManager.GAME_START_OP:
+                // The game start op tells our game clients that all players have joined and the game should start
                 Debug.Log("Start game op received...");
 
                 string startGameData = BytesToString(e.Data);
-                Debug.Log(startGameData);
+                // Debug.Log(startGameData);
 
-                // TODO: Should this go here? yes, as we have to wait until 2nd player joins before starting.  While local testing, we have to keep it in the first case...
-                //GameStarted = true;
-
+                // Sets the opponent's id, in production should use their public username, not id.
                 StartMatch startMatch = JsonConvert.DeserializeObject<StartMatch>(startGameData);
-
                 _gameManager.UpdateRemotePlayerUI(startMatch.remotePlayerId);
+
+                // This enables the draw card button so the game can be played.
+                GameStarted = true;
 
                 break;
 
             case GameManager.DRAW_CARD_ACK_OP:
+                // A player has drawn a card.  To be received as an acknowledgement that a card was played,
+                // regardless of who played it, and update the UI accordingly.
                 Debug.Log("Player draw card ack...");
 
                 string data = BytesToString(e.Data);
@@ -136,12 +124,13 @@ public class RealTimeClient
                 break;
 
             case GameManager.GAMEOVER_OP:
+                // gives us the match results
                 Debug.Log("Game over op...");
-
+                
                 string gameoverData = BytesToString(e.Data);
-                Debug.Log(gameoverData);
-
+                // Debug.Log(gameoverData);
                 matchResults = JsonConvert.DeserializeObject<MatchResults>(gameoverData);
+
                 GameOver = true;
 
                 break;
@@ -150,6 +139,26 @@ public class RealTimeClient
                 Debug.Log("OpCode not found: " + e.OpCode);
                 break;
         }
+    }
+
+    /// <summary>
+    /// Example of sending to a custom message to the server.
+    /// 
+    /// Server could be replaced by known peer Id etc.
+    /// </summary>
+    /// <param name="realtimePayload">Custom payload to send with message</param>
+    public void SendMessage(int opcode, RealtimePayload realtimePayload)
+    {
+        // You can also pass in the DeliveryIntent depending on your message delivery requirements
+        // https://docs.aws.amazon.com/gamelift/latest/developerguide/realtime-sdk-csharp-ref-datatypes.html#realtime-sdk-csharp-ref-datatypes-rtmessage
+
+        string payload = JsonUtility.ToJson(realtimePayload);
+        // Debug.Log(payload);
+
+        Client.SendMessage(Client.NewMessage(opcode)
+            .WithDeliveryIntent(DeliveryIntent.Reliable)
+            .WithTargetPlayer(Constants.PLAYER_ID_SERVER)
+            .WithPayload(StringToBytes(payload)));
     }
 
     public MatchResults GetMatchResults()

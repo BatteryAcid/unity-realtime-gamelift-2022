@@ -63,20 +63,22 @@ public class GameManager : MonoBehaviour
 
         FindMatch matchMessage = new FindMatch(REQUEST_FIND_MATCH_OP, _playerId);
         string jsonPostData = JsonUtility.ToJson(matchMessage);
-        Debug.Log(jsonPostData);
+        // Debug.Log(jsonPostData);
 
         localClientPlayerName.text = _playerId;
 
         GameSessionPlacementInfo gameSessionPlacementInfo = await _apiManager.PostGetResponse(GameSessionPlacementEndpoint, jsonPostData);
-        Debug.Log(gameSessionPlacementInfo);
+        // Debug.Log(gameSessionPlacementInfo);
 
         if (gameSessionPlacementInfo != null)
         {
-            Debug.Log("Success");
+            // GameSessionPlacementInfo is a model used to handle both game session placement and game session search results from the Lambda response.
             if (gameSessionPlacementInfo.PlacementId != null)
             {
                 // The response was from a placement request
-                Debug.Log(gameSessionPlacementInfo.PlacementId);
+                Debug.Log("Game session placement request submitted.");
+                
+                // Debug.Log(gameSessionPlacementInfo.PlacementId);
 
                 // subscribe to receive the player placement fulfillment notification
                 await SubscribeToFulfillmentNotifications(gameSessionPlacementInfo.PlacementId);
@@ -84,12 +86,13 @@ public class GameManager : MonoBehaviour
             }
             else if (gameSessionPlacementInfo.GameSessionId != null)
             {
-                // The response was for a found game session which also contains infor for created player session
-                Debug.Log(gameSessionPlacementInfo.GameSessionId);
+                // The response was for a found game session which also contains info for created player session
+                Debug.Log("Game session found!");
+                // Debug.Log(gameSessionPlacementInfo.GameSessionId);
 
                 Int32.TryParse(gameSessionPlacementInfo.Port, out int portAsInt);
 
-                // Once connected, the Realtime service moves the Player session from Reserved to Active.
+                // Once connected, the Realtime service moves the Player session from Reserved to Active, which means we're ready to connect.
                 // https://docs.aws.amazon.com/gamelift/latest/apireference/API_CreatePlayerSession.html
                 EstablishConnectionToRealtimeServer(gameSessionPlacementInfo.IpAddress, portAsInt, gameSessionPlacementInfo.PlayerSessionId);
             }
@@ -109,10 +112,10 @@ public class GameManager : MonoBehaviour
 
         if (playerPlacementFulfillmentInfo != null)
         {
-            Debug.Log("PlayerPlacementFulfillmentInfo fulfilled...");
-            Debug.Log("PlacedPlayerSessions count: " + playerPlacementFulfillmentInfo.placedPlayerSessions.Count);
+            Debug.Log("Player placement was fulfilled...");
+            // Debug.Log("Placed Player Sessions count: " + playerPlacementFulfillmentInfo.placedPlayerSessions.Count);
 
-            // Once connected, the Realtime service moves the Player session from Reserved to Active.
+            // Once connected, the Realtime service moves the Player session from Reserved to Active, which means we're ready to connect.
             // https://docs.aws.amazon.com/gamelift/latest/apireference/API_CreatePlayerSession.html
             EstablishConnectionToRealtimeServer(playerPlacementFulfillmentInfo.ipAddress, playerPlacementFulfillmentInfo.port,
                 playerPlacementFulfillmentInfo.placedPlayerSessions[0].playerSessionId);
@@ -121,8 +124,7 @@ public class GameManager : MonoBehaviour
         }
         else
         {
-            // if null something went wrong
-            Debug.Log("PlayerPlacementFulfillmentInfo was null...");
+            Debug.Log("Player placement was null, something went wrong...");
             return false;
         }
     }
@@ -136,20 +138,6 @@ public class GameManager : MonoBehaviour
 
         _realTimeClient = new RealTimeClient(ipAddress, port, localUdpPort, playerSessionId, payload, ConnectionType.RT_OVER_WS_UDP_UNSECURED, this);
 
-    }
-
-    public void UpdateRemotePlayerUI(string remotePlayerId)
-    {
-        _updateRemotePlayerId = remotePlayerId;
-    }
-
-    public void OnPlayCardPressed()
-    {
-        Debug.Log("Play card pressed");
-
-        RealtimePayload realtimePayload = new RealtimePayload(_playerId);
-        // You will use the Realtime client's send message function to pass data to the server
-        _realTimeClient.SendMessage(PLAY_CARD_OP, realtimePayload);
     }
 
     public void CardPlayed(CardPlayed cardPlayed)
@@ -282,6 +270,21 @@ public class GameManager : MonoBehaviour
         _quitButton.onClick.AddListener(OnQuitPressed);
 
         _playerId = System.Guid.NewGuid().ToString();
+    }
+
+    public void UpdateRemotePlayerUI(string remotePlayerId)
+    {
+        _updateRemotePlayerId = remotePlayerId;
+    }
+
+    public void OnPlayCardPressed()
+    {
+        Debug.Log("Play card pressed");
+
+        RealtimePayload realtimePayload = new RealtimePayload(_playerId);
+
+        // Use the Realtime client's SendMessage function to pass data to the server
+        _realTimeClient.SendMessage(PLAY_CARD_OP, realtimePayload);
     }
 
     public static int GetAvailableUdpPort()
