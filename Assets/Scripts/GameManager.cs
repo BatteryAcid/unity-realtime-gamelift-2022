@@ -227,13 +227,13 @@ public class GameManager : MonoBehaviour
 
             if (matchResults.winnerId == _playerId)
             {
-                localPlayerResults = "WINNER! Score ";
+                localPlayerResults = "You WON! Score ";
                 remotePlayerResults = "Loser. Score ";
             }
             else
             {
                 remotePlayerResults = "WINNER! Score ";
-                localPlayerResults = "Loser. Score ";
+                localPlayerResults = "You Lost. Score ";
             }
 
             if (matchResults.playerOneId == _playerId)
