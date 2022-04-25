@@ -24,14 +24,14 @@ using Newtonsoft.Json;
  */
 public class RealTimeClient
 {
-    private GameManager _gameManager;
-    private MatchResults matchResults;
-
     public Aws.GameLift.Realtime.Client Client { get; private set; }
 
     public bool OnCloseReceived { get; private set; }
     public bool GameStarted = false;
-    public bool GameOver = false;
+
+    public event EventHandler<CardPlayedEventArgs> CardPlayedEventHandler;
+    public event EventHandler<RemotePlayerIdEventArgs> RemotePlayerIdEventHandler;
+    public event EventHandler<GameOverEventArgs> GameOverEventHandler;
 
     /// <summary>
     /// Initialize a client for GameLift Realtime and connects to a player session.
@@ -42,11 +42,8 @@ public class RealTimeClient
     /// <param name="playerSessionId">The player session Id in use - from CreatePlayerSession</param>
     /// <param name="connectionPayload"></param>
     /// 
-    public RealTimeClient(string endpoint, int tcpPort, int localUdpPort, string playerSessionId, string connectionPayload, ConnectionType connectionType, GameManager gameManagerIn)
+    public RealTimeClient(string endpoint, int tcpPort, int localUdpPort, string playerSessionId, string connectionPayload, ConnectionType connectionType)
     {
-        // There's probably a better way to inject the game manager, but to keep it simple for the demo...
-        _gameManager = gameManagerIn;
-
         this.OnCloseReceived = false;
 
         // Create a client configuration to specify a secure or unsecure connection type
@@ -100,7 +97,7 @@ public class RealTimeClient
 
                 // Sets the opponent's id, in production should use their public username, not id.
                 StartMatch startMatch = JsonConvert.DeserializeObject<StartMatch>(startGameData);
-                _gameManager.UpdateRemotePlayerUI(startMatch.remotePlayerId);
+                OnRemotePlayerIdReceived(startMatch);
 
                 // This enables the draw card button so the game can be played.
                 GameStarted = true;
@@ -129,15 +126,55 @@ public class RealTimeClient
                 
                 string gameoverData = BytesToString(e.Data);
                 // Debug.Log(gameoverData);
-                matchResults = JsonConvert.DeserializeObject<MatchResults>(gameoverData);
 
-                GameOver = true;
+                MatchResults matchResults = JsonConvert.DeserializeObject<MatchResults>(gameoverData);
+
+                OnGameOver(matchResults);
 
                 break;
 
             default:
                 Debug.Log("OpCode not found: " + e.OpCode);
                 break;
+        }
+    }
+
+    protected virtual void OnCardPlayed(CardPlayed cardPlayed)
+    {
+        Debug.Log("OnCardPlayed");
+
+        CardPlayedEventArgs cardPlayedEventArgs = new CardPlayedEventArgs(cardPlayed);
+
+        EventHandler<CardPlayedEventArgs> handler = CardPlayedEventHandler;
+        if (handler != null)
+        {
+            handler(this, cardPlayedEventArgs);
+        }
+    }
+
+    protected virtual void OnRemotePlayerIdReceived(StartMatch startMatch)
+    {
+        Debug.Log("OnRemotePlayerIdReceived");
+
+        RemotePlayerIdEventArgs remotePlayerIdEventArgs = new RemotePlayerIdEventArgs(startMatch);
+
+        EventHandler<RemotePlayerIdEventArgs> handler = RemotePlayerIdEventHandler;
+        if (handler != null)
+        {
+            handler(this, remotePlayerIdEventArgs);
+        }
+    }
+
+    protected virtual void OnGameOver(MatchResults matchResults)
+    {
+        Debug.Log("OnGameOver");
+
+        GameOverEventArgs gameOverEventArgs = new GameOverEventArgs(matchResults);
+
+        EventHandler<GameOverEventArgs> handler = GameOverEventHandler;
+        if (handler != null)
+        {
+            handler(this, gameOverEventArgs);
         }
     }
 
@@ -159,11 +196,6 @@ public class RealTimeClient
             .WithDeliveryIntent(DeliveryIntent.Reliable)
             .WithTargetPlayer(Constants.PLAYER_ID_SERVER)
             .WithPayload(StringToBytes(payload)));
-    }
-
-    public MatchResults GetMatchResults()
-    {
-        return matchResults;
     }
 
     /**
@@ -216,22 +248,6 @@ public class RealTimeClient
     {
         return Encoding.UTF8.GetString(bytes);
     }
-
-    protected virtual void OnCardPlayed(CardPlayed cardPlayed)
-    {
-        Debug.Log("OnCardPlayed");
-
-        CardPlayedEventArgs cardPlayedEventArgs = new CardPlayedEventArgs(cardPlayed);
-
-        EventHandler <CardPlayedEventArgs> handler = CardPlayedEventHandler;
-        if (handler != null)
-        {
-            Debug.Log("Calling to handler");
-            handler(this, cardPlayedEventArgs);
-        }
-    }
-
-    public event EventHandler<CardPlayedEventArgs> CardPlayedEventHandler;
 }
 
 public class CardPlayedEventArgs : EventArgs
@@ -247,4 +263,26 @@ public class CardPlayedEventArgs : EventArgs
         this.playedBy = cardPlayed.playedBy;
     }
 }
+
+public class RemotePlayerIdEventArgs : EventArgs
+{
+    public string remotePlayerId { get; set; }
+
+    public RemotePlayerIdEventArgs(StartMatch startMatch)
+    {
+        this.remotePlayerId = startMatch.remotePlayerId;
+    }
+}
+
+public class GameOverEventArgs : EventArgs
+{
+    public MatchResults matchResults { get; set; }
+
+    public GameOverEventArgs(MatchResults matchResults)
+    {
+        this.matchResults = matchResults;
+    }
+}
+
+
 
