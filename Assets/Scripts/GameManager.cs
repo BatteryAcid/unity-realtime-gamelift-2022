@@ -233,7 +233,8 @@ public class GameManager : MonoBehaviour
 
             for (int cardIndex = 0; cardIndex < _matchStats.remotePlayerCardsPlayed.Count; cardIndex++)
             {
-                cardUIObjects[cardIndex].text = _matchStats.remotePlayerCardsPlayed[cardIndex];
+                // Added + 2 because cardUIObjects holds all UI cards, first 2 are local, last 2 are remote 
+                cardUIObjects[cardIndex + 2].text = _matchStats.remotePlayerCardsPlayed[cardIndex];
             }
         }
 
