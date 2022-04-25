@@ -87,7 +87,7 @@ public class RealTimeClient
                 // If you need to test and you don't have two computers, you can mark GameStarted true here to enable the Draw card button
                 // and comment it out in the GAME_START_OP case.
                 // This only works because game play is asynchronous and doesn't care if both players are active at the same time.
-                // GameStarted = true;
+                //GameStarted = true;
 
                 break;
 
@@ -119,7 +119,7 @@ public class RealTimeClient
                 // Debug.Log(cardPlayedMessage.playedBy);
                 // Debug.Log(cardPlayedMessage.card);
 
-                _gameManager.CardPlayed(cardPlayedMessage);
+                OnCardPlayed(cardPlayedMessage);
 
                 break;
 
@@ -216,4 +216,35 @@ public class RealTimeClient
     {
         return Encoding.UTF8.GetString(bytes);
     }
+
+    protected virtual void OnCardPlayed(CardPlayed cardPlayed)
+    {
+        Debug.Log("OnCardPlayed");
+
+        CardPlayedEventArgs cardPlayedEventArgs = new CardPlayedEventArgs(cardPlayed);
+
+        EventHandler <CardPlayedEventArgs> handler = CardPlayedEventHandler;
+        if (handler != null)
+        {
+            Debug.Log("Calling to handler");
+            handler(this, cardPlayedEventArgs);
+        }
+    }
+
+    public event EventHandler<CardPlayedEventArgs> CardPlayedEventHandler;
 }
+
+public class CardPlayedEventArgs : EventArgs
+{
+    public int card { get; set; }
+    public int plays { get; set; }
+    public string playedBy { get; set; }
+
+    public CardPlayedEventArgs(CardPlayed cardPlayed)
+    {
+        this.card = cardPlayed.card;
+        this.plays = cardPlayed.plays;
+        this.playedBy = cardPlayed.playedBy;
+    }
+}
+

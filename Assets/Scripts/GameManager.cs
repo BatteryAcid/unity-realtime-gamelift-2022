@@ -36,6 +36,14 @@ public class GameManager : MonoBehaviour
     // Lambda opcodes
     private const string REQUEST_FIND_MATCH_OP = "1";
 
+    private MatchStats _matchStats = new MatchStats();
+    private bool _processCardPlay = false;
+
+    // these are listed in order from right-to-left on screen, first 2 are for local player, second 2 for remote player
+    private List<Vector3> cardLocationsInUI = new List<Vector3>() { new Vector3(314, 340, 0), new Vector3(710.8f, 340, 0), new Vector3(1217.5f, 331.3f, 0), new Vector3(1618.1f, 345.9f, 0) };
+    private List<TMPro.TextMeshProUGUI> cardUIObjects = new List<TMPro.TextMeshProUGUI>();
+
+
     // GameLift server opcodes 
     // An opcode defined by client and your server script that represents a custom message type
     public const int OP_CODE_PLAYER_ACCEPTED = 113;
@@ -44,14 +52,17 @@ public class GameManager : MonoBehaviour
     public const int PLAY_CARD_OP = 300;
     public const int DRAW_CARD_ACK_OP = 301;
 
+    //
+    public GameObject CardPrefab;
+
     public TMPro.TextMeshProUGUI localClientPlayerName;
-    public TMPro.TextMeshProUGUI Player1Card1;
-    public TMPro.TextMeshProUGUI Player1Card2;
+    //public TMPro.TextMeshProUGUI Player1Card1;
+    //public TMPro.TextMeshProUGUI Player1Card2;
     public TMPro.TextMeshProUGUI Player1Result;
 
     public TMPro.TextMeshProUGUI remoteClientPlayerName;
-    public TMPro.TextMeshProUGUI Player2Card1;
-    public TMPro.TextMeshProUGUI Player2Card2;
+    //public TMPro.TextMeshProUGUI Player2Card1;
+    //public TMPro.TextMeshProUGUI Player2Card2;
     public TMPro.TextMeshProUGUI Player2Result;
 
     public List<CardPlayed> cardsPlayed = new List<CardPlayed>();
@@ -137,36 +148,54 @@ public class GameManager : MonoBehaviour
         string payload = JsonUtility.ToJson(realtimePayload);
 
         _realTimeClient = new RealTimeClient(ipAddress, port, localUdpPort, playerSessionId, payload, ConnectionType.RT_OVER_WS_UDP_UNSECURED, this);
-
+        _realTimeClient.CardPlayedEventHandler += OnCardPlayedEvent;
     }
 
-    public void CardPlayed(CardPlayed cardPlayed)
+    void OnCardPlayedEvent(object sender, CardPlayedEventArgs cardPlayedEventArgs)
+    {
+        Debug.Log($"The card {cardPlayedEventArgs.card} was played by {cardPlayedEventArgs.playedBy}, and had {cardPlayedEventArgs.plays} plays.");
+        CardPlayed(cardPlayedEventArgs);
+    }
+
+    public void CardPlayed(CardPlayedEventArgs cardPlayedEventArgs)
     {
         Debug.Log("card played");
-        Debug.Log(cardPlayed.card);
+        Debug.Log(cardPlayedEventArgs.card);
 
-        if (cardPlayed.playedBy == _playerId)
+        if (cardPlayedEventArgs.playedBy == _playerId)
         {
+            Debug.Log("local card played");
+            _matchStats.localPlayerCardsPlayed.Add(cardPlayedEventArgs.card.ToString());
+
+            Debug.Log(_matchStats.localPlayerCardsPlayed[cardPlayedEventArgs.plays - 1]);
+
+            // remove...?
             // local card played
-            if (cardPlayed.plays == 1)
-            {
-                _localPlayerFirstCardPlayUI = cardPlayed.card.ToString();
-            } else if (cardPlayed.plays == 2)
-            {
-                _localPlayerSecondCardPlayUI = cardPlayed.card.ToString();
-            }
+            //if (cardPlayedEventArgs.plays == 1)
+            //{
+            //    _localPlayerFirstCardPlayUI = cardPlayedEventArgs.card.ToString();
+            //} else if (cardPlayedEventArgs.plays == 2)
+            //{
+            //    _localPlayerSecondCardPlayUI = cardPlayedEventArgs.card.ToString();
+            //}
         } else
         {
+            Debug.Log("remote card played");
+            _matchStats.remotePlayerCardsPlayed.Add(cardPlayedEventArgs.card.ToString());
+            Debug.Log(_matchStats.remotePlayerCardsPlayed[cardPlayedEventArgs.plays - 1]);
+
             // remote card played
-            if (cardPlayed.plays == 1)
-            {
-                _remotePlayerFirstCardPlayUI = cardPlayed.card.ToString();
-            }
-            else if (cardPlayed.plays == 2)
-            {
-                _remotePlayerSecondCardPlayUI = cardPlayed.card.ToString();
-            }
+            //if (cardPlayedEventArgs.plays == 1)
+            //{
+            //    _remotePlayerFirstCardPlayUI = cardPlayedEventArgs.card.ToString();
+            //}
+            //else if (cardPlayedEventArgs.plays == 2)
+            //{
+            //    _remotePlayerSecondCardPlayUI = cardPlayedEventArgs.card.ToString();
+            //}
         }
+
+        _processCardPlay = true;
     }
 
     void Update()
@@ -193,30 +222,46 @@ public class GameManager : MonoBehaviour
         }
 
         // Card plays - there's a better way to do this...
+        if (_processCardPlay)
+        {
+            _processCardPlay = false;
+
+            for (int cardIndex = 0; cardIndex < _matchStats.localPlayerCardsPlayed.Count; cardIndex++)
+            {
+                cardUIObjects[cardIndex].text = _matchStats.localPlayerCardsPlayed[cardIndex];
+            }
+
+            for (int cardIndex = 0; cardIndex < _matchStats.remotePlayerCardsPlayed.Count; cardIndex++)
+            {
+                cardUIObjects[cardIndex].text = _matchStats.remotePlayerCardsPlayed[cardIndex];
+            }
+        }
+
+
         // TODO: think of a better way to manage the card play and updating the UI...
-        if (_localPlayerFirstCardPlayUI != "")
-        {
-            Player1Card1.text = _localPlayerFirstCardPlayUI;
-            _localPlayerFirstCardPlayUI = "";
-        }
+        //if (_localPlayerFirstCardPlayUI != "")
+        //{
+        //    Player1Card1.text = _localPlayerFirstCardPlayUI;
+        //    _localPlayerFirstCardPlayUI = "";
+        //}
 
-        if (_localPlayerSecondCardPlayUI != "")
-        {
-            Player1Card2.text = _localPlayerSecondCardPlayUI;
-            _localPlayerSecondCardPlayUI = "";
-        }
+        //if (_localPlayerSecondCardPlayUI != "")
+        //{
+        //    Player1Card2.text = _localPlayerSecondCardPlayUI;
+        //    _localPlayerSecondCardPlayUI = "";
+        //}
 
-        if (_remotePlayerFirstCardPlayUI != "")
-        {
-            Player2Card1.text = _remotePlayerFirstCardPlayUI;
-            _remotePlayerFirstCardPlayUI = "";
-        }
+        //if (_remotePlayerFirstCardPlayUI != "")
+        //{
+        //    Player2Card1.text = _remotePlayerFirstCardPlayUI;
+        //    _remotePlayerFirstCardPlayUI = "";
+        //}
 
-        if (_remotePlayerSecondCardPlayUI != "")
-        {
-            Player2Card2.text = _remotePlayerSecondCardPlayUI;
-            _remotePlayerSecondCardPlayUI = "";
-        }
+        //if (_remotePlayerSecondCardPlayUI != "")
+        //{
+        //    Player2Card2.text = _remotePlayerSecondCardPlayUI;
+        //    _remotePlayerSecondCardPlayUI = "";
+        //}
 
         if (_realTimeClient != null && _realTimeClient.GameOver == true)
         {
@@ -270,6 +315,16 @@ public class GameManager : MonoBehaviour
         _quitButton.onClick.AddListener(OnQuitPressed);
 
         _playerId = System.Guid.NewGuid().ToString();
+
+        // build cards into UI from prefab
+        GameObject canvas = GameObject.Find("PlayPanel");
+        foreach (Vector3 cardLocation in cardLocationsInUI)
+        {
+            GameObject card = Instantiate(CardPrefab, cardLocation, Quaternion.identity, canvas.transform);
+            cardUIObjects.Add(card.GetComponentInChildren<TMPro.TextMeshProUGUI>());
+        }
+
+        CardPrefab.gameObject.SetActive(false); // turn off source prefab 
     }
 
     public void UpdateRemotePlayerUI(string remotePlayerId)
@@ -314,6 +369,12 @@ public class GameManager : MonoBehaviour
             _realTimeClient.Disconnect();
         }
     }
+}
+
+public class MatchStats
+{
+    public List<string> localPlayerCardsPlayed = new List<string>();
+    public List<string> remotePlayerCardsPlayed = new List<string>();
 }
 
 [System.Serializable]
