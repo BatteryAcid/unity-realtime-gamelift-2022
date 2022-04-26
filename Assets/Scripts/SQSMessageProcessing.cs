@@ -166,7 +166,6 @@ public class SQSMessageProcessing : MonoBehaviour
 
     void Start()
     {
-        // TODO: think we need CognitoIdentity dll:https://docs.aws.amazon.com/sdkfornet/latest/apidocs/items/TCognitoIdentityCognitoAWSCredentialsNET35.html
         CognitoAWSCredentials credentials = new CognitoAWSCredentials(
             IdentityPool, // Your Identity pool ID
             RegionEndpoint.USEast1 // Your GameLift Region
@@ -179,7 +178,7 @@ public class SQSMessageProcessing : MonoBehaviour
     {
         // EX:
         //   arn:aws:gamelift:us-east-1::gamesession/fleet-123e953d-aeef-41c9-8711-3b8f6ee7bb8f/abc21ec4-7856-421d-9cd1-0acc539f3e0e
-        // splitting on / means id is at index 2
+        // Splitting on / means id is at index 2
         string[] arnSections = gameSessionArn.Split('/');
         return arnSections[2];
     }

@@ -1,13 +1,13 @@
 using UnityEngine;
 using UnityEngine.Networking;
 using System.Threading.Tasks;
-using Newtonsoft.Json;
 
 public class APIManager : MonoBehaviour
 {
-    public async Task<GameSessionPlacementInfo> PostGetResponse(string api, string postData)
+    public async Task<string> Post(string api, string postData)
     {
-        GameSessionPlacementInfo gameSessionPlacementInfo = new GameSessionPlacementInfo();
+        string response = "";
+
         var formData = System.Text.Encoding.UTF8.GetBytes(postData);
 
         UnityWebRequest webRequest = UnityWebRequest.Post(api, "");
@@ -16,7 +16,8 @@ public class APIManager : MonoBehaviour
         webRequest.uploadHandler = new UploadHandlerRaw(formData);
         webRequest.SetRequestHeader("Content-Type", "application/json");
 
-        // add header so we know where the reqest came from, if reusing same lambda function for both API GW and Step Function
+        // add header so we know where the reqest came from, not required, helpful if you need to
+        // differentiate between multiple client types in your lambda function
         webRequest.SetRequestHeader("source", "unity");
 
         // able to await because of GetAwaiter function in ExtensionMethod class.
@@ -27,8 +28,7 @@ public class APIManager : MonoBehaviour
             Debug.Log("Success, API call complete!");
             // Debug.Log(webRequest.downloadHandler.text);
             
-            // TODO: make this method more generic, and do this somewhere else
-            gameSessionPlacementInfo = JsonConvert.DeserializeObject<GameSessionPlacementInfo>(webRequest.downloadHandler.text);
+            response = webRequest.downloadHandler.text;
         }
         else
         {
@@ -37,6 +37,6 @@ public class APIManager : MonoBehaviour
 
         webRequest.Dispose();
 
-        return gameSessionPlacementInfo;
+        return response;
     }
 }

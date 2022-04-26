@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using System.Net;
 using System.Net.Sockets;
 using System.Collections.Generic;
+using Newtonsoft.Json;
 
 public class GameManager : MonoBehaviour
 {
@@ -65,7 +66,9 @@ public class GameManager : MonoBehaviour
 
         localClientPlayerName.text = _playerId;
 
-        GameSessionPlacementInfo gameSessionPlacementInfo = await _apiManager.PostGetResponse(GameSessionPlacementEndpoint, jsonPostData);
+        string response = await _apiManager.PostGetResponse(GameSessionPlacementEndpoint, jsonPostData);
+        GameSessionPlacementInfo gameSessionPlacementInfo = JsonConvert.DeserializeObject<GameSessionPlacementInfo>(response);
+
         // Debug.Log(gameSessionPlacementInfo);
 
         if (gameSessionPlacementInfo != null)
