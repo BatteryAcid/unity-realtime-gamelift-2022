@@ -66,7 +66,7 @@ public class GameManager : MonoBehaviour
 
         localClientPlayerName.text = _playerId;
 
-        string response = await _apiManager.PostGetResponse(GameSessionPlacementEndpoint, jsonPostData);
+        string response = await _apiManager.Post(GameSessionPlacementEndpoint, jsonPostData);
         GameSessionPlacementInfo gameSessionPlacementInfo = JsonConvert.DeserializeObject<GameSessionPlacementInfo>(response);
 
         // Debug.Log(gameSessionPlacementInfo);
