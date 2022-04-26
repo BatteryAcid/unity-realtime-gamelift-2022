@@ -103,7 +103,6 @@ public class GameManager : MonoBehaviour
             }
         }
 
-        _findingMatch = false;
         _findMatchButton.gameObject.SetActive(false); // remove from UI
     }
 
@@ -191,9 +190,9 @@ public class GameManager : MonoBehaviour
     {
         if (_findingMatch)
         {
+            _findingMatch = false;
             _findMatchButton.enabled = false;
             _findMatchButton.GetComponentInChildren<TMPro.TextMeshProUGUI>().text = "Searching...";
-            _findingMatch = false;
         }
 
         if (_realTimeClient != null && _realTimeClient.GameStarted)
@@ -213,16 +212,7 @@ public class GameManager : MonoBehaviour
         {
             _processCardPlay = false;
 
-            for (int cardIndex = 0; cardIndex < _matchStats.localPlayerCardsPlayed.Count; cardIndex++)
-            {
-                cardUIObjects[cardIndex].text = _matchStats.localPlayerCardsPlayed[cardIndex];
-            }
-
-            for (int cardIndex = 0; cardIndex < _matchStats.remotePlayerCardsPlayed.Count; cardIndex++)
-            {
-                // Added + 2 because cardUIObjects holds all UI cards, first 2 are local, last 2 are remote 
-                cardUIObjects[cardIndex + 2].text = _matchStats.remotePlayerCardsPlayed[cardIndex];
-            }
+            ProcessCardPlay();
         }
 
         // determine match results once game is over
@@ -230,6 +220,20 @@ public class GameManager : MonoBehaviour
         {
             this._gameOver = false;
             DisplayMatchResults();
+        }
+    }
+
+    private void ProcessCardPlay()
+    {
+        for (int cardIndex = 0; cardIndex < _matchStats.localPlayerCardsPlayed.Count; cardIndex++)
+        {
+            cardUIObjects[cardIndex].text = _matchStats.localPlayerCardsPlayed[cardIndex];
+        }
+
+        for (int cardIndex = 0; cardIndex < _matchStats.remotePlayerCardsPlayed.Count; cardIndex++)
+        {
+            // Added + 2 because cardUIObjects holds all UI cards, first 2 are local, last 2 are remote 
+            cardUIObjects[cardIndex + 2].text = _matchStats.remotePlayerCardsPlayed[cardIndex];
         }
     }
 
