@@ -1,4 +1,4 @@
-﻿// Original source: https://docs.aws.amazon.com/gamelift/latest/developerguide/realtime-script.html
+﻿// Based on source: https://docs.aws.amazon.com/gamelift/latest/developerguide/realtime-script.html
 
 // Example Realtime Server Script
 'use strict';
@@ -22,15 +22,8 @@ var onProcessStartedCalled = false; // Record if onProcessStarted has been calle
 
 // Example custom op codes for user-defined messages
 // Any positive op code number can be defined here. These should match your client code.
-const OP_CODE_CUSTOM_OP1 = 111;
-const OP_CODE_CUSTOM_OP1_REPLY = 112;
 const OP_CODE_PLAYER_ACCEPTED = 113;
 const OP_CODE_DISCONNECT_NOTIFICATION = 114;
-
-// Example groups for user defined groups
-// Any positive group number can be defined here. These should match your client code.
-const RED_TEAM_GROUP = 1;
-const BLUE_TEAM_GROUP = 2;
 
 // @BatteryAcid
 const GAME_START_OP = 201;
@@ -38,7 +31,6 @@ const GAMEOVER_OP = 209;
 const PLAY_CARD_OP = 300;
 const DRAW_CARD_ACK_OP = 301;
 
-let players = [];
 let playersInfo = [];
 let winner = null;
 let cardPlays = {};
@@ -89,6 +81,7 @@ function onHealthCheck() {
 
 // On Player Connect is called when a player has passed initial validation
 // Return true if player should connect, false to reject
+// This is hit before onPlayerAccepted
 function onPlayerConnect(connectMsg) {
     logger.info("onPlayerConnect: ");
     logger.info(connectMsg);
@@ -107,7 +100,7 @@ function onPlayerConnect(connectMsg) {
     };
     logger.info(playerConnected);
 
-    playersInfo.push(playerConnected); // TODO: consider removing players array
+    playersInfo.push(playerConnected);
 
     // Perform any validation needed for connectMsg.payload, connectMsg.peerId
     return true;
@@ -118,12 +111,12 @@ function onPlayerAccepted(player) {
     logger.info("onPlayerAccepted");
     logger.info(player);
 
-    players.push(player.peerId);
-    //playersInfo.push(player); // TODO: consider removing players array
     playersInfo.forEach((playerInfo) => {
         logger.info("onPlayerAccepted playersInfo checking peerId");
+
         if (playerInfo.peerId == player.peerId) {
             logger.info("onPlayerAccepted playersInfo mark active");
+
             // not sure if we need to do this...
             playerInfo.accepted = true;
             playerInfo.active = true;
@@ -131,17 +124,19 @@ function onPlayerAccepted(player) {
     });
 
     // This player was accepted -- let's send them a message
-    const msg = session.newTextGameMessage(OP_CODE_PLAYER_ACCEPTED, player.peerId,
-        "Peer " + player.peerId + " accepted");
+    const msg = session.newTextGameMessage(OP_CODE_PLAYER_ACCEPTED, player.peerId, "Peer " + player.peerId + " accepted");
     session.sendReliableMessage(msg, player.peerId);
     activePlayers++;
 
-    logger.info("onPlayerAccepted checking players length");
-    logger.info(players.length);
-    // this would have to adjusted to handle games where players can come and go within a single match
-    if (players.length > 1) { //if (activePlayers > 1) { // TODO: move this back to just active players, as I'm not testing simultaneous players right now.
+    logger.info("onPlayerAccepted checking active player count");
 
-        logger.info("onPlayerAccepted players > 1");
+    // This would have to adjusted to handle games where players can come and go within a single match.
+    // NOTE: ActivePlayers stores active connections. If you need to test from only one computer, like you
+    // can only play one side of the match at a time, then you'll have to make this condition check if playerInfo.length > 1 instead.
+    if (activePlayers > 1) {
+
+        logger.info("onPlayerAccepted activePlayers > 1");
+
         // getPlayers returns "a list of peer IDs for players that are currently connected to the game session"
         // So, let's match these players to the ones stored in playersInfo
         session.getPlayers().forEach((playerSession, playerId) => {
@@ -155,7 +150,7 @@ function onPlayerAccepted(player) {
                 logger.info("playerInfo.peerId: " + playerInfo.peerId + ", playerSession.peerId: " + playerSession.peerId + ", playerInfo.active: " + playerInfo.active);
 
                 // find the other active player
-                if (playerInfo.peerId != playerSession.peerId) { // && playerInfo.active == true) { TODO: will have to enable this back to prevent sending messages to non-active players... probably overkill
+                if (playerInfo.peerId != playerSession.peerId) {
                     var gameStartPayload = {
                         remotePlayerId: playerInfo.playerId
                     };
@@ -174,15 +169,15 @@ function onPlayerAccepted(player) {
 
 }
 
+// @BatteryAcid note: I don't actually do anything with this message, but you can add that support to your Unity client.
 // On Player Disconnect is called when a player has left or been forcibly terminated
 // Is only called for players that actually connected to the server and not those rejected by validation
 // This is called before the player is removed from the player list
 function onPlayerDisconnect(peerId) {
     logger.info("onPlayerDisconnect: " + peerId);
+
     // send a message to each remaining player letting them know about the disconnect
-    const outMessage = session.newTextGameMessage(OP_CODE_DISCONNECT_NOTIFICATION,
-        session.getServerId(),
-        "Peer " + peerId + " disconnected");
+    const outMessage = session.newTextGameMessage(OP_CODE_DISCONNECT_NOTIFICATION, session.getServerId(), "Peer " + peerId + " disconnected");
     session.getPlayers().forEach((player, playerId) => {
         if (playerId != peerId) {
             session.sendReliableMessage(outMessage, peerId);
@@ -202,7 +197,6 @@ function onPlayerDisconnect(peerId) {
 function onMessage(gameMessage) {
     logger.info("onMessage");
     logger.info(gameMessage);
-    logger.info(players);
 
     // pass data through the payload field
     var payloadRaw = new Buffer.from(gameMessage.payload);
@@ -220,7 +214,7 @@ function onMessage(gameMessage) {
 
                 if (cardDrawnSuccess) {
 
-                    let allPlayersLength = players.length;
+                    let allPlayersLength = playersInfo.length;
                     let cardDrawData = {
                         card: cardDrawn,
                         playedBy: payload.playerId,
@@ -231,8 +225,8 @@ function onMessage(gameMessage) {
                     const cardDrawMsg = session.newTextGameMessage(DRAW_CARD_ACK_OP, session.getServerId(), JSON.stringify(cardDrawData));
 
                     for (let index = 0; index < allPlayersLength; ++index) {
-                        logger.info("Sending draw card message to player " + players[index]);
-                        session.sendReliableMessage(cardDrawMsg, players[index]);
+                        logger.info("Sending draw card message to player " + playersInfo[index].peerId);
+                        session.sendReliableMessage(cardDrawMsg, playersInfo[index].peerId);
                     }
 
                     checkGameOver();
@@ -247,11 +241,7 @@ function onMessage(gameMessage) {
     }
 }
 
-//TODO: this is not getting hit...???
 function checkGameOver() {
-    // TODO: remove, for testing
-    // var test = { "eb051e15-1337-4071-b8a9-b9b0da32d7e2": [1, 5], "27f87c33-c6f8-45f2-b403-801eaf4f4a2d": [5, 3] };
-    // cardPlays = test;
 
     var gameCompletedPlayers = 0;
 
@@ -263,6 +253,7 @@ function checkGameOver() {
     }
 
     logger.info(gameCompletedPlayers);
+
     // If at least two players completed two turns, signal game over.
     // This partially handles the case where a player joins but leaves the game after one play or something,
     // and another joins and plays two turns. Update for your game requirements.
@@ -275,9 +266,6 @@ function checkGameOver() {
 
 // assumes both players played two cards
 function determineWinner() {
-    // TODO: remove, for testing
-    // var test = { "eb051e15-1337-4071-b8a9-b9b0da32d7e2": [1, 5], "27f87c33-c6f8-45f2-b403-801eaf4f4a2d": [5, 3] };
-    // cardPlays = test;
 
     var result = {
         playerOneId: "",
@@ -315,9 +303,9 @@ function determineWinner() {
     // send out game over messages with winner
     const gameoverMsg = session.newTextGameMessage(GAMEOVER_OP, session.getServerId(), JSON.stringify(result));
 
-    for (let index = 0; index < players.length; ++index) {
-        logger.info("Sending game over message to player " + players[index]);
-        session.sendReliableMessage(gameoverMsg, players[index]);
+    for (let index = 0; index < playersInfo.length; ++index) {
+        logger.info("Sending game over message to player " + playersInfo[index].peerId);
+        session.sendReliableMessage(gameoverMsg, playersInfo[index].peerId);
     }
 }
 
@@ -351,7 +339,7 @@ async function tickLoop() {
 
         // If we had 2 players that are no longer active, end game.
         // You can add a minimum elapsed time check here if you'd like
-        if (players.length == 2 && activePlayers == 0) { // && (elapsedTime > minimumElapsedTime)) {
+        if (playersInfo.length == 2 && activePlayers == 0) { // && (elapsedTime > minimumElapsedTime)) {
             logger.info("All players disconnected. Ending game");
 
             gameoverCleanup();
