@@ -11,7 +11,7 @@ using Newtonsoft.Json;
 
 public class GameManager : MonoBehaviour
 {
-    private const string GameSessionPlacementEndpoint = "https://0zco9bhj7c.execute-api.us-east-1.amazonaws.com/demo/";
+    private const string GameSessionPlacementEndpoint = "https://433lle3aj2.execute-api.us-east-1.amazonaws.com/rtgl-apigw-stage"; //discovery "https://0zco9bhj7c.execute-api.us-east-1.amazonaws.com/demo/";
 
     private static readonly IPEndPoint DefaultLoopbackEndpoint = new IPEndPoint(IPAddress.Loopback, port: 0);
     private SQSMessageProcessing _sqsMessageProcessing;

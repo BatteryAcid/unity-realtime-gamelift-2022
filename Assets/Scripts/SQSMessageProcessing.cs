@@ -11,8 +11,8 @@ using Newtonsoft.Json;
 
 public class SQSMessageProcessing : MonoBehaviour
 {
-    private const string IdentityPool = "us-east-1:0f2ccd51-c118-4358-99ed-5fb8ac8322c7";
-    private const string SQSURL = "https://sqs.us-east-1.amazonaws.com/654368844800/realtime-gamelift-2022-fulfillment-queue-discovery";
+    private const string IdentityPool = "us-east-1:01a47119-a0e8-4092-84f0-e800d454e094";// disc "us-east-1:0f2ccd51-c118-4358-99ed-5fb8ac8322c7";
+    private const string SQSURL = "https://sqs.us-east-1.amazonaws.com/654368844800/rtgl-sqs-2022-1"; // disc "https://sqs.us-east-1.amazonaws.com/654368844800/realtime-gamelift-2022-fulfillment-queue-discovery";
     private const int MaxMessages = 1;
     private const int WaitTime = 20;
 
