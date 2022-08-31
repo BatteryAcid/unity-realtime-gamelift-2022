@@ -18,6 +18,10 @@ Create realtime gamelift script with AWS CLI
 Update realtime gamelift script  with AWS CLI  
      `aws gamelift update-script --script-id YOUR_SCRIPT_ID --name YOUR_SCRIPT_NAME --script-version 0.0.1 --zip-file fileb://YOUR_SCRIPT_PATH.zip`
      
+## 👋 Let's talk shop 👇  
+[Discord] https://discord.gg/psjbBDvNBK  
+[Twitter] https://twitter.com/BatteryAcidDev
+
 ## Resources
 
 ❗️❗️ Required Configuration ❗️❗️  
